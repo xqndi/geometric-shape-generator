@@ -85,19 +85,22 @@ def create_image(c1, c2, c3, index):
 # ///////////////////////////////////////////////////////////////////////////////////////////////////////
 # ///////////////////////////////////////////////////////////////////////////////////////////////////////
 def init_config_dict():
-    CONFIG_DICT["nr_iterations"] = randint(5, 38)
+    CONFIG_DICT["nr_iterations"] = randint(5, 30)
     CONFIG_DICT["color_list"] = randint(1, 3)
     if not randint(0, 10):
         CONFIG_DICT["fill_probability"] = -1
     else:
         CONFIG_DICT["fill_probability"] = randint(10, 100)
 
+    if CONFIG_DICT["color_list"] == 3:
+        CONFIG_DICT["fill_probability"] = randint(10, 30)
+
     if not randint(0, 8):
         CONFIG_DICT["polygon_max_vertices"] = 3
     else:
-        CONFIG_DICT["polygon_max_vertices"] = randint(3, 11)
+        CONFIG_DICT["polygon_max_vertices"] = randint(3, 5)
 
-    if randint(0, 20):
+    if randint(0, 14):
         CONFIG_DICT["circle_threshold"] = randint(0, 45)
         CONFIG_DICT["oval_threshold"] = randint(CONFIG_DICT["circle_threshold"] + 1, 65)
         CONFIG_DICT["line_threshold"] = randint(CONFIG_DICT["oval_threshold"] + 1, 95)
@@ -113,7 +116,8 @@ def init_config_dict():
         CONFIG_DICT["nr_iterations"] -= 5
         CONFIG_DICT["polygon_max_vertices"] = 3
 
-    CONFIG_DICT["line_duplicate_prob"] = randint(0, 50)
+    CONFIG_DICT["line_duplicate_prob"] = randint(0, 30)
+    CONFIG_DICT["all_duplicate_prob"] = randint(0, 20)
     print(CONFIG_DICT)
 
 
@@ -127,6 +131,8 @@ def print_config_data(graph_win):
     rect.draw(graph_win)
     y_pos = WINDOW_HEIGHT + 28
     for key, value in CONFIG_DICT.items():
+        if key == "color_list":
+            continue
         data_string = key + ": " + str(value)
 
         text = Text(Point(118, y_pos), data_string)
@@ -149,6 +155,7 @@ def color_object(graph_object, colors_list):
 # ///////////////////////////////////////////////////////////////////////////////////////////////////////
 def generate_shape(graph_win, colors_list):
     rand_choice = randint(1, 100)
+
     if rand_choice <= CONFIG_DICT["circle_threshold"]:
         generate_circle(graph_win, colors_list)
         return
@@ -171,13 +178,12 @@ def generate_polygon(graph_win, colors_list):
         polygon = generate_even_polygon(nr_points)
         color_object(polygon, colors_list)
         polygon.draw(graph_win)
-        return
-
     else:
         polygon = generate_odd_polygon(nr_points)
         color_object(polygon, colors_list)
         polygon.draw(graph_win)
-        return
+
+    duplicate_object(graph_win, polygon)
 
 
 # ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -266,8 +272,13 @@ def generate_circle(graph_win, colors_list):
     circle = Circle(Point(X_CENTER, randint(0, WINDOW_HEIGHT)), rad)
     color_object(circle, colors_list)
     circle.draw(graph_win)
+    # generate moon
+    if (rad > 25) and (not randint(0, 7)):
+        generate_moon(graph_win, circle)
+        return
 
-    if randint(0, 10):
+    if randint(0, 6):
+        duplicate_object(graph_win, circle)
         return
 
     # else draw orbit around circle
@@ -278,6 +289,32 @@ def generate_circle(graph_win, colors_list):
 
     oval = Oval(Point(x1, y1), Point(x2, y2))
     oval.draw(graph_win)
+
+
+# ///////////////////////////////////////////////////////////////////////////////////////////////////////
+# ///////////////////////////////////////////////////////////////////////////////////////////////////////
+def generate_moon(graph_win, circle):
+
+    rad = circle.getRadius()
+    c1_x1 = circle.getP1().getX()
+    c1_x2 = circle.getP2().getX()
+    c1_y1 = circle.getP1().getY()
+    c1_y2 = circle.getP2().getY()
+
+    oval_y_offset = int(0.7 * rad)
+    oval_x_offset = int(0.25 * oval_y_offset)
+    o1 = Oval(Point(c1_x1 + oval_x_offset, c1_y1 + oval_y_offset),
+              Point(c1_x2 - oval_x_offset, c1_y2))
+    o1.setFill("white")
+    o1.draw(graph_win)
+
+    rect_y_offset = int(oval_y_offset * 2.25)
+    rect_x_offset = int(0.5 * oval_y_offset)
+    o2 = Oval(Point(c1_x1 + rect_x_offset, c1_y1 + rect_y_offset),
+              Point(c1_x2 - rect_x_offset, c1_y2 + 1))
+    o2.setOutline("white")
+    o2.setFill("white")
+    o2.draw(graph_win)
 
 
 # ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -295,6 +332,7 @@ def generate_oval(graph_win, colors_list):
 
     color_object(oval, colors_list)
     oval.draw(graph_win)
+    duplicate_object(graph_win, oval)
 
 
 # ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -302,7 +340,7 @@ def generate_oval(graph_win, colors_list):
 def generate_line(graph_win):
     random_choice = randint(1, 10)
     # vertical line
-    if 0 < random_choice <= 4:
+    if 0 < random_choice <= 6:
         first_y_boundary = WINDOW_HEIGHT - int(WINDOW_HEIGHT / 3)
         lower_y_pos = randint(0, first_y_boundary)
         second_y_boundary = lower_y_pos + int(WINDOW_HEIGHT / 3)
@@ -313,7 +351,7 @@ def generate_line(graph_win):
         return
 
     # horizontal line
-    if 4 < random_choice <= 8:
+    if 7 < random_choice <= 8:
         first_y_pos = randint(0, WINDOW_HEIGHT)
         min_x_dist = int(WINDOW_WIDTH / 6)
         first_x_pos = randint(min_x_dist, X_CENTER)
@@ -354,6 +392,21 @@ def generate_line(graph_win):
         line.draw(graph_win)
         line = Line(Point(second_x_pos, lower_second_y), Point(first_x_pos, lower_first_y))
         line.draw(graph_win)
+
+
+# ///////////////////////////////////////////////////////////////////////////////////////////////////////
+# ///////////////////////////////////////////////////////////////////////////////////////////////////////
+def duplicate_object(graph_win, graphics_object, offset=0):
+    if CONFIG_DICT["all_duplicate_prob"] < randint(0, 100):
+        return
+
+    duplicate = graphics_object.clone()
+    if not offset:
+        offset = randint(-45, 45)
+    duplicate.move(0, offset)
+    duplicate.draw(graph_win)
+
+    duplicate_object(graph_win, duplicate, offset)
 
 
 # ///////////////////////////////////////////////////////////////////////////////////////////////////////
